@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -185,7 +185,9 @@ private:
     static fragments_type clone_fragments(const fragments_type &frags);
     
     bool generic_process(uint32_t &my_seq, uint32_t &other_seq, 
-      payload_type &pload, fragments_type &frags, TCP *tcp, RawPDU *raw);
+      payload_type &pload, fragments_type &frags, TCP *tcp);
+
+    void safe_insert(fragments_type &frags, uint32_t seq, RawPDU *raw);
 
 
     uint32_t client_seq, server_seq;
@@ -298,11 +300,6 @@ private:
         EndFunctor end_fun;
     };
     
-    void clear_state() {
-        sessions.clear();
-        last_identifier = 0;
-    }
-    
     template<typename DataFunctor, typename EndFunctor>
     bool callback(PDU &pdu, const DataFunctor &fun, const EndFunctor &end_fun);
     static void dummy_function(TCPStream&) { }
@@ -315,7 +312,6 @@ template<typename DataFunctor, typename EndFunctor>
 void TCPStreamFollower::follow_streams(BaseSniffer &sniffer, DataFunctor data_fun, EndFunctor end_fun) {
     typedef proxy_caller<DataFunctor, EndFunctor> proxy_type;
     proxy_type proxy = { this, data_fun, end_fun };
-    clear_state();
     sniffer.sniff_loop(make_sniffer_handler(&proxy, &proxy_type::callback));
 }
 
@@ -323,7 +319,6 @@ template<typename ForwardIterator, typename DataFunctor, typename EndFunctor>
 void TCPStreamFollower::follow_streams(ForwardIterator start, ForwardIterator end, 
   DataFunctor data_fun, EndFunctor end_fun) 
 {
-    clear_state();
     while(start != end) {
         if(!callback(Utils::dereference_until_pdu(start), data_fun, end_fun))
             return;

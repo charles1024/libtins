@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,6 +30,7 @@
 #ifndef TINS_DHCPV6_H
 #define TINS_DHCPV6_H
 
+#include <cstring>
 #include <list>
 #include "pdu.h"
 #include "endianness.h"
@@ -39,14 +40,15 @@
 
 namespace Tins {    
 /**
- * Represents a DHCPv6 PDU.
+ * \class DHCPv6
+ * \brief Represents a DHCPv6 PDU.
  */
 class DHCPv6 : public PDU {
 public:
     /**
      * Represents a DHCPv6 option. 
      */
-    typedef PDUOption<uint16_t> option;
+    typedef PDUOption<uint16_t, DHCPv6> option;
 
     /**
      * The message types.
@@ -179,6 +181,8 @@ public:
         ia_na_type(uint32_t id = 0, uint32_t t1 = 0, uint32_t t2 = 0,
           const options_type& options = options_type())
         : id(id), t1(t1), t2(t2), options(options) {}
+
+        static ia_na_type from_option(const option &opt);
     };
     
     /**
@@ -194,6 +198,8 @@ public:
         ia_ta_type(uint32_t id = 0,
           const options_type& options = options_type())
         : id(id), options(options) {}
+
+        static ia_ta_type from_option(const option &opt);
     };
 
     /**
@@ -211,6 +217,8 @@ public:
           const options_type& options = options_type())
         : address(address), preferred_lifetime(preferred_lifetime), 
           valid_lifetime(valid_lifetime), options(options) {}
+
+        static ia_address_type from_option(const option &opt);
     };
     
     /**
@@ -228,6 +236,8 @@ public:
           const auth_info_type &auth_info = auth_info_type())
         : protocol(protocol), algorithm(algorithm), rdm(rdm),
         replay_detection(replay_detection), auth_info(auth_info) {}
+
+        static authentication_type from_option(const option &opt);
     };
     
     /**
@@ -239,6 +249,8 @@ public:
         
         status_code_type(uint16_t code = 0, const std::string &message = "")
         : code(code), message(message) { }
+
+        static status_code_type from_option(const option &opt);
     };
     
     /**
@@ -253,6 +265,8 @@ public:
         vendor_info_type(uint32_t enterprise_number = 0, 
           const data_type &data = data_type())
         : enterprise_number(enterprise_number), data(data) { }
+
+        static vendor_info_type from_option(const option &opt);
     };
     
     
@@ -264,7 +278,19 @@ public:
     /**
      * The type used to store the User Class option.
      */
-    typedef std::vector<class_option_data_type> user_class_type;
+    //typedef std::vector<class_option_data_type> user_class_type;
+    struct user_class_type {
+        typedef std::vector<class_option_data_type> data_type;
+        data_type data;
+
+        user_class_type(const data_type &data = data_type())
+        : data(data)
+        {
+
+        }
+
+        static user_class_type from_option(const option &opt);
+    };
     
     /**
      * The type used to store the Vendor Class option.
@@ -279,6 +305,8 @@ public:
           const class_data_type &vendor_class_data = class_data_type())
         : enterprise_number(enterprise_number), 
         vendor_class_data(vendor_class_data) { }
+
+        static vendor_class_type from_option(const option &opt);
     };
     
     /**
@@ -361,12 +389,14 @@ public:
         
         duid_type(const duid_ll &identifier)
         : id(duid_en::duid_id), data(identifier.serialize()) {}
+
+        static duid_type from_option(const option &opt);
     };
         
     /**
      * The type used to store the Option Request option.
      */
-    typedef std::vector<OptionTypes> option_request_type;
+    typedef std::vector<uint16_t> option_request_type;
     
     /**
      * The type used to store the Relay Message option.
@@ -837,52 +867,63 @@ private:
             throw option_not_found();
         return option;
     }
-    
-    template<typename InputIterator>
-    void class_option_data2option(InputIterator start, InputIterator end, 
-      std::vector<uint8_t>& buffer, size_t start_index = 0) 
-    {
-        size_t index = start_index;
-        while(start != end) {
-            buffer.resize(buffer.size() + sizeof(uint16_t) + start->size());
-            *(uint16_t*)&buffer[index] = Endian::host_to_be<uint16_t>(start->size());
-            index += sizeof(uint16_t);
-            std::copy(start->begin(), start->end(), buffer.begin() + index);
-            index += start->size();
-            
-            start++;
-        }
-    }
-    
-    template<typename OutputType>
-    OutputType option2class_option_data(const uint8_t *ptr, uint32_t total_sz) const
-    {
-        typedef typename OutputType::value_type value_type;
-        OutputType output;
-        size_t index = 0;
-        while(index + 2 < total_sz) {
-            uint16_t size = Endian::be_to_host(
-                *(const uint16_t*)(ptr + index)
-            );
-            index += sizeof(uint16_t);
-            if(index + size > total_sz)
-                throw option_not_found();
-            output.push_back(
-                value_type(ptr + index, ptr + index + size)
-            );
-            index += size;
-        }
-        if(index != total_sz)
+
+    template<typename T>
+    T search_and_convert(OptionTypes opt) const {
+        const option *option = search_option(opt);
+        if(!option)
             throw option_not_found();
-        return output;
+        return option->to<T>();
     }
-    
 
     uint8_t header_data[4];
     uint32_t options_size;
     ipaddress_type link_addr, peer_addr;
     options_type options_;
-};    
+};   
+
+namespace Internals {
+template<typename InputIterator>
+void class_option_data2option(InputIterator start, InputIterator end, 
+  std::vector<uint8_t>& buffer, size_t start_index = 0) 
+{
+    size_t index = start_index;
+    uint16_t uint16_t_buffer;
+    while(start != end) {
+        buffer.resize(buffer.size() + sizeof(uint16_t) + start->size());
+        uint16_t_buffer = Endian::host_to_be<uint16_t>(start->size());
+        std::memcpy(&buffer[index], &uint16_t_buffer, sizeof(uint16_t));
+        index += sizeof(uint16_t);
+        std::copy(start->begin(), start->end(), buffer.begin() + index);
+        index += start->size();
+        
+        start++;
+    }
+}
+
+template<typename OutputType>
+OutputType option2class_option_data(const uint8_t *ptr, uint32_t total_sz)
+{
+    typedef typename OutputType::value_type value_type;
+    OutputType output;
+    size_t index = 0;
+    while(index + 2 < total_sz) {
+        uint16_t size;
+        std::memcpy(&size, ptr + index, sizeof(uint16_t));
+        size = Endian::be_to_host(size);
+        index += sizeof(uint16_t);
+        if(index + size > total_sz)
+            throw option_not_found();
+        output.push_back(
+            value_type(ptr + index, ptr + index + size)
+        );
+        index += size;
+    }
+    if(index != total_sz)
+        throw malformed_option();
+    return output;
+}
+} 
 }
 
 #endif // TINS_DHCPV6_H

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -56,6 +56,16 @@
 namespace Tins {
 namespace Endian {
     /** 
+     * \brief "Changes" a 8-bit integral value's endianess. This is an
+     * identity function.
+     *
+     * \param data The data to convert.
+     */
+    inline uint8_t do_change_endian(uint8_t data) {
+        return data;
+    }
+    
+    /** 
      * \brief Changes a 16-bit integral value's endianess.
      *
      * \param data The data to convert.
@@ -99,6 +109,11 @@ namespace Endian {
     
     template<size_t>
     struct conversion_dispatcher;
+    
+    template<>
+    struct conversion_dispatcher<sizeof(uint8_t)> 
+    : public conversion_dispatch_helper<uint8_t> 
+    { };
     
     template<>
     struct conversion_dispatcher<sizeof(uint16_t)> 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,7 +47,11 @@ private:
 };
  
 void BeaconSniffer::run(const std::string &iface) {
-    Sniffer sniffer(iface, 1500, true, "type mgt subtype beacon");
+    SnifferConfiguration config;
+    config.set_promisc_mode(true);
+    config.set_filter("type mgt subtype beacon");
+    config.set_rfmon(true);
+    Sniffer sniffer(iface, config);
     sniffer.sniff_loop(make_sniffer_handler(this, &BeaconSniffer::callback));
 }
  

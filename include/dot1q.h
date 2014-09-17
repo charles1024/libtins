@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,6 +36,7 @@
 
 namespace Tins {
 /**
+ * \class Dot1Q
  * Represents an IEEE 802.1q PDU.
  */
 class Dot1Q : public PDU {

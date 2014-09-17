@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,6 +33,7 @@
 #include <string>
 #include <iterator>
 #include <pcap.h>
+#include "data_link_type.h"
 #include "utils.h"
 #include "cxxstd.h"
 
@@ -42,11 +43,40 @@ class PDU;
 /**
  * \class PacketWriter
  * \brief Writes PDUs to a pcap format file.
+ *
+ * This class can be used to write packets into a <i>pcap</i> format
+ * file. It supports both writing packets one by one, or writing all
+ * packets in a range (provided by iterators), so you can use it
+ * to dump all packets in a vector.
+ *
+ * Since you might use both PDU objects and pointers to them,
+ * both the PacketWriter::write overload that takes a single object
+ * or the one that takes an iterator range accept a PDU reference type
+ * as well as any type that can be dereferenced until a PDU type is found.
+ * This means you can use both raw and smart pointers. 
+ *
+ * For example:
+ *
+ * \code
+ * // Differents types holding PDUs
+ * EthernetII object;
+ * std::shared_ptr<PDU> smart_ptr = ...;
+ * std::vector<std::shared_ptr<PDU>> vt = ....;
+ *
+ * // The writer we'll use
+ * PacketWriter writer("/tmp/file.pcap", DataLinkType<EthernetII>());
+ *
+ * // Now write all of them
+ * writer.write(object);
+ * writer.write(smart_ptr);
+ * writer.write(vt.begin(), vt.end());
+ * \endcode
  */
 class PacketWriter {
 public:
     /**
-     * \brief The type of PDUs that will be written to this file.
+     * \brief The type of PDUs that will be written to this file (deprecated).
+     * \deprecated Use DataLinkType instead of this enum.
      * 
      * This flag should match the type of the lowest layer PDU to be
      * written.
@@ -58,9 +88,40 @@ public:
         DOT3 = DLT_EN10MB,
         SLL = DLT_LINUX_SLL
     };
-    
+
     /**
      * \brief Constructs a PacketWriter.
+     *
+     * This method takes a DataLinkType, which indicates the link
+     * layer protocol that will be used on the packets to write.
+     *
+     * For example, you can write packets that contain an 
+     * EthernetII link layer type by doing:
+     * 
+     * \code
+     * // Construct a PacketWriter
+     * PacketWriter writer("/tmp/test.pcap", DataLinkType<EthernetII>());
+     * // Write some packet
+     * writer.write(packet);
+     * \endcode
+     * 
+     * \param file_name The file in which to store the written PDUs.
+     * \param lt A DataLinkType that represents the link layer
+     * protocol to use.
+     * \sa PcapIdentifier.
+     */
+    template<typename T>
+    PacketWriter(const std::string &file_name, const DataLinkType<T>& lt)
+    {
+        init(file_name, lt.get_type());
+    }
+
+    /**
+     * \brief Constructs a PacketWriter.
+     * 
+     * \deprecated Use the PacketWriter(const std::string&, const DataLinkType<T>&)
+     * constructor.
+     * 
      * \param file_name The file in which to store the written PDUs.
      * \param lt The link type which will be written to this file.
      * \sa LinkType.
@@ -76,7 +137,7 @@ public:
          * 
          * \param rhs The PacketWriter to be moved.
          */
-        PacketWriter(PacketWriter &&rhs) noexcept {
+        PacketWriter(PacketWriter &&rhs) TINS_NOEXCEPT {
             *this = std::move(rhs);
         }
         
@@ -88,7 +149,7 @@ public:
          * 
          * \param rhs The PacketWriter to be moved.
          */
-        PacketWriter& operator=(PacketWriter &&rhs) noexcept {
+        PacketWriter& operator=(PacketWriter &&rhs) TINS_NOEXCEPT {
             handle = 0;
             dumper = 0;
             std::swap(handle, rhs.handle);
@@ -98,7 +159,9 @@ public:
     #endif
     
     /**
-     * Destructor.
+     * \brief Destructor.
+     *
+     * Gracefully closes the output file.
      */
     ~PacketWriter();
     
@@ -135,6 +198,8 @@ private:
     // You shall not copy
     PacketWriter(const PacketWriter&);
     PacketWriter& operator=(const PacketWriter&);
+
+    void init(const std::string& file_name, int link_type);
 
     pcap_t *handle;
     pcap_dumper_t *dumper; 

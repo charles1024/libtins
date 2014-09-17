@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,7 +32,7 @@
 #endif // TINS_DEBUG
 #include <algorithm>
 #include <cstring>
-#include <pcap/bpf.h>
+#include <pcap.h>
 #include "dot11/dot11_base.h"
 #include "dot3.h"
 #include "ethernetII.h"

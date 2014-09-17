@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -57,7 +57,7 @@ public:
     /**
      * \brief IEEE 802.11 options struct.
      */
-    typedef PDUOption<uint8_t> option;
+    typedef PDUOption<uint8_t, Dot11> option;
 
     /**
      * The type used to store tagged options.
@@ -73,6 +73,11 @@ public:
      * \brief Broadcast hardware address.
      */
     static const address_type BROADCAST;
+
+    /**
+     * The endianness used by Dot11.
+     */
+    static const endian_type endianness = LE;
 
     /**
      * \brief Enum for the different types of 802.11 frames.

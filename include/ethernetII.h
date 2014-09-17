@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,7 +39,8 @@
 namespace Tins {
 
     /**
-     * \brief Class representing an Ethernet II PDU.
+     * \class EthernetII
+     * \brief Represents an Ethernet II PDU.
      */
     class EthernetII : public PDU {
     public:

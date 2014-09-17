@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,15 +36,7 @@
 
 namespace Tins {
 PacketWriter::PacketWriter(const std::string &file_name, LinkType lt) {
-    handle = pcap_open_dead(lt, 65535);
-    if(!handle)
-        throw std::runtime_error("Error creating pcap handle");
-    dumper = pcap_dump_open(handle, file_name.c_str());
-    if(!dumper) {
-        // RAII plx
-        pcap_close(handle);
-        throw std::runtime_error(pcap_geterr(handle));
-    }
+    init(file_name, lt);
 }
 
 PacketWriter::~PacketWriter() {
@@ -70,4 +62,17 @@ void PacketWriter::write(PDU &pdu) {
     };
     pcap_dump((u_char*)dumper, &header, &buffer[0]);
 }
+
+void PacketWriter::init(const std::string& file_name, int link_type) {
+    handle = pcap_open_dead(link_type, 65535);
+    if(!handle)
+        throw std::runtime_error("Error creating pcap handle");
+    dumper = pcap_dump_open(handle, file_name.c_str());
+    if(!dumper) {
+        // RAII plx
+        pcap_close(handle);
+        throw std::runtime_error(pcap_geterr(handle));
+    }
+}
+
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,6 +45,7 @@
 
 namespace Tins {
     class SnifferIterator;
+    class SnifferConfiguration;
 
     /**
      * \class BaseSniffer
@@ -68,7 +69,7 @@ namespace Tins {
              * \brief Move constructor.
              * This constructor is available only in C++11.
              */
-            BaseSniffer(BaseSniffer &&rhs) noexcept 
+            BaseSniffer(BaseSniffer &&rhs) TINS_NOEXCEPT 
             : handle(nullptr), mask()
             {
                 *this = std::move(rhs);
@@ -78,7 +79,7 @@ namespace Tins {
              * \brief Move assignment operator.
              * This operator is available only in C++11.
              */
-            BaseSniffer& operator=(BaseSniffer &&rhs) noexcept 
+            BaseSniffer& operator=(BaseSniffer &&rhs) TINS_NOEXCEPT 
             {
                 using std::swap;
                 swap(handle, rhs.handle);
@@ -201,6 +202,22 @@ namespace Tins {
         void set_timeout(int ms);
 
         /**
+         * \brief Sets whether to extract RawPDUs or fully parsed packets.
+         *
+         * By default, packets will be parsed starting from link layer.
+         * However, if you're parsing a lot of traffic, then you might
+         * want to extract packets and push them into a queue, 
+         * so a consumer can parse them when they're popped.
+         *
+         * This method allows doing that. If the parameter is true,
+         * then packets taken from this BaseSniffer will only contain
+         * a RawPDU which will have to entire contents of the packet.
+         * 
+         * \param value Whether to extract RawPDUs or not.
+         */
+        void set_extract_raw_pdus(bool value);
+
+        /**
          * \brief Retrieves this sniffer's link type.
          *
          * This calls pcap_datalink on the stored pcap handle and
@@ -222,23 +239,23 @@ namespace Tins {
          * Default constructor.
          */
         BaseSniffer();
-    
-        /**
-         * \brief Initialices this BaseSniffer.
-         * 
-         * \param phandle The pcap handle to be used for sniffing.
-         * \param filter The pcap filter which will be applied to the
-         * stream.
-         * \param if_mask The interface's subnet mask. If 0 is provided,
-         * then some IP broadcast tests won't work correctly.
-         */
-        void init(pcap_t *phandle, const std::string &filter, bpf_u_int32 if_mask);
+
+        void set_pcap_handle(pcap_t* const pcap_handle);
+
+        pcap_t* get_pcap_handle();
+
+        const pcap_t* get_pcap_handle() const;
+
+        void set_if_mask(bpf_u_int32 if_mask);
+
+        bpf_u_int32 get_if_mask() const;
     private:
         BaseSniffer(const BaseSniffer&);
         BaseSniffer &operator=(const BaseSniffer&);
         
         pcap_t *handle;
         bpf_u_int32 mask;
+        bool extract_raw;
     };
     
     /** 
@@ -247,36 +264,73 @@ namespace Tins {
      */
     class Sniffer : public BaseSniffer {
     public:
+        /**
+         * \deprecated This enum is no longer necessary. You should use the
+         * Sniffer(const std::string&, const SnifferConfiguration&) constructor.
+         */
         enum promisc_type {
             NON_PROMISC,
             PROMISC
         };
 
         /**
-         * Constructs an instance of Sniffer.
+         * \brief Constructs an instance of Sniffer using the provided configuration.
+         *
+         * This constructor was added as a way to improve the parameter bloat
+         * introduced by the other ones available. You should create an instance
+         * of SnifferConfiguration, set the desired parameters, and then use it
+         * when constructing a Sniffer object.
+         *
+         * \sa SnifferConfiguration
+         * 
+         * \param device The device which will be sniffed.
+         * \param configuration The configuration object to use to setup the sniffer.
+         */
+        Sniffer(const std::string &device, const SnifferConfiguration& configuration);
+
+        /**
+         * \brief Constructs an instance of Sniffer.
+         *
+         * By default the interface won't be put into promiscuous mode, and won't
+         * be put into monitor mode.
+         *
+         * \deprecated Use the Sniffer(const std::string&, const SnifferConfiguration&) 
+         * constructor.
          * \param device The device which will be sniffed.
          * \param max_packet_size The maximum packet size to be read.
          * \param promisc bool indicating wether to put the interface in promiscuous mode.(optional)
          * \param filter A capture filter to be used on the sniffing session.(optional);
+         * \param rfmon Indicates if the interface should be put in monitor mode.(optional);
          */
         Sniffer(const std::string &device, unsigned max_packet_size,
-          bool promisc = false, const std::string &filter = "");
+          bool promisc = false, const std::string &filter = "", bool rfmon = false);
 
         /**
          * \brief Constructs an instance of Sniffer.
          *
          * The maximum capture size is set to 65535. By default the interface won't
-         * be put into promiscuous mode.
-         * 
+         * be put into promiscuous mode, and won't be put into monitor mode.
+         *
+         * \deprecated Use the Sniffer(const std::string&, const SnifferConfiguration&) 
+         * constructor.
          * \param device The device which will be sniffed.
          * \param promisc Indicates if the interface should be put in promiscuous mode.
          * \param filter A capture filter to be used on the sniffing session.(optional);
+         * \param rfmon Indicates if the interface should be put in monitor mode.(optional);
          */
         Sniffer(const std::string &device, promisc_type promisc = NON_PROMISC, 
-          const std::string &filter = "");
+          const std::string &filter = "", bool rfmon = false);
+
     private:
-        void init_sniffer(const std::string &device, unsigned max_packet_size,
-          bool promisc = false, const std::string &filter = "");
+        friend class SnifferConfiguration;
+
+        void set_snap_len(unsigned snap_len);
+
+        void set_buffer_size(unsigned buffer_size);
+
+        void set_promisc_mode(bool promisc_enabled);
+
+        void set_rfmon(bool rfmon_enabled);
     };
     
     /**
@@ -289,6 +343,15 @@ namespace Tins {
     class FileSniffer : public BaseSniffer {
     public:
         /**
+         * \brief Constructs an instance of FileSniffer.
+         * \param file_name The pcap file which will be parsed.
+         * \param filter A capture filter to be used on the file.(optional);
+         */
+        FileSniffer(const std::string &file_name, const SnifferConfiguration& configuration);
+
+        /**
+         * \deprecated Use the constructor that takes a SnifferConfiguration instead.
+         *
          * \brief Constructs an instance of FileSniffer.
          * \param file_name The pcap file which will be parsed.
          * \param filter A capture filter to be used on the file.(optional);
@@ -392,6 +455,116 @@ namespace Tins {
 
         BaseSniffer *sniffer;
         Packet pkt;
+    };
+
+    /** 
+     * \class SnifferConfiguration
+     * \brief Represents the configuration of a BaseSniffer object.
+     *
+     * This class can be used as an easy way to configure a Sniffer 
+     * or FileSniffer object.
+     *
+     * It can be used by constructing an object of this type, 
+     * setting the desired values and then passing it to the 
+     * Sniffer or FileSniffer object's constructor. This sets
+     * default values for some attributes:
+     *
+     * - Snapshot length: 65535 bytes (64 KB).
+     * - Timeout: 1000 milliseconds.
+     * - Promiscuous mode: false.
+     *
+     * For any of the attributes not listed above, the associated
+     * pcap function which is used to set them on a pcap handle
+     * won't be called at all. 
+     * 
+     * This class can be used to configure a Sniffer object,
+     * like this:
+     *
+     * \code
+     * // Initialize the configuration.
+     * SnifferConfiguration config;
+     * config.set_filter("ip and port 80");
+     * config.set_promisc_mode(true);
+     * 
+     * // Use it on a Sniffer object.
+     * Sniffer sniffer("eth0", config);
+     * \endcode
+     */
+    class SnifferConfiguration {
+    public:
+        /**
+         * \brief The default snapshot length.
+         *
+         * This is 65535 by default.
+         */
+        static const unsigned DEFAULT_SNAP_LEN;
+
+        /**
+         * \brief The default timeout.
+         *
+         * This is 1000 by default.
+         */
+        static const unsigned DEFAULT_TIMEOUT;
+
+        /**
+         * Default constructs a SnifferConfiguration.
+         */
+        SnifferConfiguration();
+
+        /**
+         * Sets the snapshot length option.
+         * \param snap_len The snapshot length to be set.
+         */
+        void set_snap_len(unsigned snap_len);
+
+        /**
+         * Sets the buffer size option.
+         * \param buffer_size The buffer size to be set.
+         */
+        void set_buffer_size(unsigned buffer_size);
+
+        /**
+         * Sets the promiscuous mode option.
+         * \param enabled The promiscuous mode value.
+         */
+        void set_promisc_mode(bool enabled);
+
+        /**
+         * Sets a pcap filter to use on the sniffer.
+         * \param filter The pcap filter to be used.
+         */
+        void set_filter(const std::string& filter);
+
+        /**
+         * Sets the rfmon option.
+         * \param enabled The rfmon option value.
+         */
+        void set_rfmon(bool enabled);
+
+        /**
+         * Sets the timeout option.
+         * \param timeout The timeout to be set.
+         */
+        void set_timeout(unsigned timeout);
+    protected:
+        friend class Sniffer;
+        friend class FileSniffer;
+
+        void configure_sniffer_pre_activation(Sniffer& sniffer) const;
+        void configure_sniffer_pre_activation(FileSniffer& sniffer) const;
+
+        void configure_sniffer_post_activation(Sniffer& sniffer) const;
+
+        unsigned _snap_len;
+        bool _has_buffer_size;
+        unsigned _buffer_size;
+        bool _has_promisc;
+        bool _promisc;
+        bool _has_rfmon;
+        bool _rfmon;
+        bool _has_filter;
+        std::string _filter;
+        unsigned _timeout;
     };
 
     template<class Functor>

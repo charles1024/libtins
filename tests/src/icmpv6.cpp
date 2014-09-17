@@ -3,6 +3,7 @@
 #include <string>
 #include <stdint.h>
 #include "icmpv6.h"
+#include "ethernetII.h"
 #include "ip.h"
 #include "tcp.h"
 #include "utils.h"
@@ -14,6 +15,7 @@ class ICMPv6Test : public testing::Test {
 public:
     static const uint8_t expected_packet[];
     static const uint8_t expected_packet1[];
+    static const uint8_t expected_packet2[];
 
     void test_equals(const ICMPv6 &icmp1, const ICMPv6 &icmp2);
 };
@@ -29,6 +31,15 @@ const uint8_t ICMPv6Test::expected_packet1[] = {
     96, 151, 7, 105, 234, 5, 1, 0, 0, 0, 0, 5, 220, 3, 4, 64, 192, 0, 54, 
     238, 128, 0, 54, 238, 128, 0, 0, 0, 0, 63, 254, 5, 7, 0, 0, 0, 1, 0, 
     0, 0, 0, 0, 0, 0, 0
+};
+
+const uint8_t ICMPv6Test::expected_packet2[] = {
+    0, 96, 151, 7, 105, 234, 0, 0, 134, 5, 128, 218, 134, 221, 96, 0,
+    0, 0, 0, 32, 58, 255, 254, 128, 0, 0, 0, 0, 0, 0, 2, 0, 134, 255
+    , 254, 5, 128, 218, 254, 128, 0, 0, 0, 0, 0, 0, 2, 96, 151, 255, 
+    254, 7, 105, 234, 135, 0, 0, 0, 0, 0, 0, 0, 254, 128, 0, 0, 0
+    , 0, 0, 0, 2, 96, 151, 255, 254, 7, 105, 234, 1, 1, 0, 0, 134, 5,
+    128, 218
 };
 
 TEST_F(ICMPv6Test, Constructor) {
@@ -209,31 +220,46 @@ TEST_F(ICMPv6Test, RedirectHeader) {
     ICMPv6 icmp;
     IP ip = IP("127.0.0.1") / TCP(22);
     PDU::serialization_type buffer = ip.serialize();
+    buffer.insert(buffer.begin(), 6, 0);
     icmp.redirect_header(buffer);
     EXPECT_EQ(buffer, icmp.redirect_header());
 }
 
 TEST_F(ICMPv6Test, MTU) {
     ICMPv6 icmp;
-    icmp.mtu(0x9a8df7);
-    EXPECT_EQ(icmp.mtu(), 0x9a8df7U);
+    ICMPv6::mtu_type data(0x1234, 0x9a8df7);
+    icmp.mtu(data);
+    EXPECT_EQ(data, icmp.mtu());
 }
 
 TEST_F(ICMPv6Test, ShortcutLimit) {
     ICMPv6 icmp;
-    icmp.shortcut_limit(123);
-    EXPECT_EQ(icmp.shortcut_limit(), 123);
+    ICMPv6::shortcut_limit_type slimit(123);
+    slimit.reserved1 = 0x7f;
+    slimit.reserved2 = 0x12345678;
+    icmp.shortcut_limit(slimit);
+    ICMPv6::shortcut_limit_type sl = icmp.shortcut_limit();
+    EXPECT_EQ(123, sl.limit);
+    EXPECT_EQ(0x7f, sl.reserved1);
+    EXPECT_EQ(0x12345678, sl.reserved2);
 }
 
 TEST_F(ICMPv6Test, NewAdvertisementInterval) {
     ICMPv6 icmp;
-    icmp.new_advert_interval(0x9a8df7);
-    EXPECT_EQ(icmp.new_advert_interval(), 0x9a8df7U);
+    ICMPv6::new_advert_interval_type adv(0x9a8df7);
+    adv.reserved = 0x1234;
+    icmp.new_advert_interval(adv);
+    ICMPv6::new_advert_interval_type data = icmp.new_advert_interval();
+    EXPECT_EQ(0x9a8df7U, data.interval);
+    EXPECT_EQ(0x1234, data.reserved);
 }
 
 TEST_F(ICMPv6Test, NewHomeAgentInformation) {
     ICMPv6 icmp;
-    ICMPv6::new_ha_info_type data(0x92fa, 0xaab3);
+    ICMPv6::new_ha_info_type data;
+    data.push_back(0);
+    data.push_back(0x92fa);
+    data.push_back(0xaab3);
     icmp.new_home_agent_info(data);
     EXPECT_EQ(icmp.new_home_agent_info(), data);
 }
@@ -241,19 +267,19 @@ TEST_F(ICMPv6Test, NewHomeAgentInformation) {
 TEST_F(ICMPv6Test, SourceAddressList) {
     ICMPv6 icmp;
     ICMPv6::addr_list_type data;
-    data.push_back("827d:adae::1");
-    data.push_back("2929:1234:fefe::2");
+    data.addresses.push_back("827d:adae::1");
+    data.addresses.push_back("2929:1234:fefe::2");
     icmp.source_addr_list(data);
-    EXPECT_EQ(icmp.source_addr_list(), data);
+    EXPECT_EQ(icmp.source_addr_list().addresses, data.addresses);
 }
 
 TEST_F(ICMPv6Test, TargetAddressList) {
     ICMPv6 icmp;
     ICMPv6::addr_list_type data;
-    data.push_back("827d:adae::1");
-    data.push_back("2929:1234:fefe::2");
+    data.addresses.push_back("827d:adae::1");
+    data.addresses.push_back("2929:1234:fefe::2");
     icmp.target_addr_list(data);
-    EXPECT_EQ(icmp.target_addr_list(), data);
+    EXPECT_EQ(icmp.target_addr_list().addresses, data.addresses);
 }
 
 TEST_F(ICMPv6Test, RSASignature) {
@@ -277,8 +303,9 @@ TEST_F(ICMPv6Test, RSASignature) {
 
 TEST_F(ICMPv6Test, Timestamp) {
     ICMPv6 icmp;
-    icmp.timestamp(0x2837d6aaa231ULL);
-    EXPECT_EQ(icmp.timestamp(), 0x2837d6aaa231ULL);
+    ICMPv6::timestamp_type ts(0x2837d6aaa231ULL);
+    icmp.timestamp(ts);
+    EXPECT_EQ(ts.timestamp, icmp.timestamp().timestamp);
 }
 
 TEST_F(ICMPv6Test, Nonce) {
@@ -316,9 +343,11 @@ TEST_F(ICMPv6Test, LinkLayerAddress) {
 
 TEST_F(ICMPv6Test, NAACK) {
     ICMPv6 icmp;
-    ICMPv6::naack_type data(0x92, 0xb3);
+    ICMPv6::naack_type data(0x92, 0xb3), result;
     icmp.naack(data);
-    EXPECT_EQ(icmp.naack(), data);
+    result = icmp.naack();
+    EXPECT_EQ(result.code, data.code);
+    EXPECT_EQ(result.status, data.status);
 }
 
 TEST_F(ICMPv6Test, MAP) {
@@ -433,4 +462,11 @@ TEST_F(ICMPv6Test, SpoofedOptions) {
     // probably we'd expect it to crash if it's not working, valgrind plx
     EXPECT_EQ(3U, pdu.options().size());
     EXPECT_EQ(pdu.serialize().size(), pdu.size());
+}
+
+TEST_F(ICMPv6Test, ChecksumCalculation) {
+    EthernetII eth(expected_packet2, sizeof(expected_packet2));
+    EthernetII::serialization_type serialized = eth.serialize();
+    const ICMPv6& icmp = eth.rfind_pdu<ICMPv6>();
+    EXPECT_EQ(0x68bd, icmp.checksum());
 }

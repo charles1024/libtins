@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,8 +36,6 @@
 #include "stp.h"
 #include "rawpdu.h"
 #include "exceptions.h"
-
-using std::list;
 
 namespace Tins {
 const uint8_t LLC::GLOBAL_DSAP_ADDR = 0xFF;
@@ -230,7 +228,7 @@ void LLC::write_serialization(uint8_t *buffer, uint32_t total_sz, const Tins::PD
 			break;
 	}
 
-	for (list<field_type>::const_iterator it = information_fields.begin(); it != information_fields.end(); it++) {
+	for (std::list<field_type>::const_iterator it = information_fields.begin(); it != information_fields.end(); it++) {
         std::copy(it->begin(), it->end(), buffer);
 		buffer += it->size();
 	}

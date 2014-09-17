@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -110,7 +110,7 @@ Tins::PDU *pdu_from_flag(Constants::IP::e flag, const uint8_t *buffer,
 {
     switch(flag) {
         case Constants::IP::PROTO_IPIP:
-            return new Tins::TCP(buffer, size);
+            return new Tins::IP(buffer, size);
         case Constants::IP::PROTO_TCP:
             return new Tins::TCP(buffer, size);
         case Constants::IP::PROTO_UDP:
@@ -193,7 +193,7 @@ Constants::Ethernet::e pdu_flag_to_ether_type(PDU::PDUType flag) {
         case PDU::PPPOE:
             return Constants::Ethernet::PPPOED;
         default:
-            if(Internals::pdu_type_registered<EthernetII>(flag))
+            if(Internals::pdu_type_registered<EthernetII>(flag)) 
                 return static_cast<Constants::Ethernet::e>(
                     Internals::pdu_type_to_id<EthernetII>(flag)
                 );
@@ -205,6 +205,8 @@ Constants::IP::e pdu_flag_to_ip_type(PDU::PDUType flag) {
     switch(flag) {
         case PDU::IP:
             return Constants::IP::PROTO_IPIP;
+        case PDU::IPv6:
+            return Constants::IP::PROTO_IPV6;
         case PDU::TCP:
             return Constants::IP::PROTO_TCP;
         case PDU::UDP:

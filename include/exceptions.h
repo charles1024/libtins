@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,6 +30,7 @@
 #ifndef TINS_EXCEPTIONS_H
 #define TINS_EXCEPTIONS_H
 
+#include <string>
 #include <stdexcept>
 
 namespace Tins {

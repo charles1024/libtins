@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,7 +40,8 @@
 namespace Tins {
 
     /**
-     * \brief Class representing a SNAP frame.
+     * \class SNAP
+     * \brief Represents a SNAP frame.
      * 
      * Note that this PDU contains the 802.3 LLC structure + SNAP frame.
      * So far only unnumbered information structure is supported.

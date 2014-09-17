@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,6 +36,10 @@
 #include "small_uint.h"
 
 namespace Tins {
+/**
+ * \class STP
+ * \brief Represents a Spanning Tree Protocol PDU.
+ */
 class STP : public PDU {
 public:
     /**

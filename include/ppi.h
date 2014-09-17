@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,6 +36,7 @@
 
 namespace Tins {
 /**
+ * \class PPI
  * \brief Represents a Per-Packet Information PDU.
  *
  * This PDU can only be constructed from a buffer, and
@@ -85,7 +86,7 @@ public:
      *  \return The stored length field value.
      */
     uint16_t length() const {
-        return _header.length;
+        return Endian::le_to_host(_header.length);
     }
 
     /**
@@ -93,7 +94,7 @@ public:
      *  \return The stored Data Link Type field value.
      */
     uint32_t dlt() const {
-        return _header.dlt;
+        return Endian::le_to_host(_header.dlt);
     }
 
     /**

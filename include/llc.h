@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,7 +40,8 @@
 namespace Tins {
 
     /**
-     * \brief Class representing a LLC frame.
+     * \class LLC
+     * \brief Representing a LLC frame.
      *
      * This PDU follows the standard LLC frame described in the IEEE 802.2 specs.
      */

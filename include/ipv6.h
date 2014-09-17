@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,6 +43,7 @@ namespace Tins {
 class PacketSender;
     
 /**
+ * \class IPv6
  * Represents an IPv6 PDU.
  */
 class IPv6 : public PDU {
@@ -60,7 +61,7 @@ public:
     /**
      * The type used to represent IPv6 extension headers.
      */
-    typedef PDUOption<uint8_t> ext_header;
+    typedef PDUOption<uint8_t, IPv6> ext_header;
     
     /**
      * The type used to store the extension headers.

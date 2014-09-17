@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,6 +30,18 @@
 #ifndef TINS_ICMP_H
 #define TINS_ICMP_H
 
+// Windows likes to define macros with not-so-common-names, which break
+// this code
+#ifdef WIN32
+    #ifdef TIMESTAMP_REQUEST
+        #undef TIMESTAMP_REQUEST
+    #endif // TIMESTAMP_REQUEST
+
+    #ifdef TIMESTAMP_REPLY
+        #undef TIMESTAMP_REPLY
+    #endif // TIMESTAMP_REPLY
+#endif // WIN32
+
 #include "macros.h"
 #include "pdu.h"
 #include "endianness.h"
@@ -37,7 +49,9 @@
 
 namespace Tins {
 
-    /** \brief Class that represents an ICMP PDU.
+    /** 
+     * \class ICMP
+     * \brief Class that represents an ICMP PDU.
      *
      * ICMP is the representation of the ICMP PDU. Instances of this class
      * must be sent over a level 3 PDU, this will otherwise fail.
@@ -258,7 +272,7 @@ namespace Tins {
          *
          * \return Returns the checksum as an unit16_t.
          */
-        uint16_t check() const { return Endian::be_to_host(_icmp.check); }
+        uint16_t checksum() const { return Endian::be_to_host(_icmp.check); }
 
         /**
          * \brief Getter for the echo id.
@@ -377,7 +391,7 @@ namespace Tins {
             } un;
         } TINS_END_PACK;
 
-        void check(uint16_t new_check);
+        void checksum(uint16_t new_check);
         
         /** \brief Serialices this ICMP PDU.
          * \param buffer The buffer in which the PDU will be serialized.

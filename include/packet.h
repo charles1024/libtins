@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -129,6 +129,13 @@ private:
 class Packet {
 public:
     /**
+     * Tag used to specify that a Packet should own a PDU pointer.
+     */
+    struct own_pdu {
+
+    };
+
+    /**
      * \brief Default constructs a Packet.
      * 
      * The PDU* will be set to a null pointer.
@@ -143,6 +150,17 @@ public:
      */
     Packet(const PDU *apdu, const Timestamp &tstamp) 
     : pdu_(apdu->clone()), ts(tstamp) { }
+
+    /**
+     * \brief Constructs a Packet from a PDU* and a Timestamp.
+     * 
+     * The PDU* will be owned by the Packet. This means you
+     * <b>do not</b> have to explicitly delete the pointer, that
+     * will be done automatically by the Packet when it goes out
+     * of scope.
+     */
+    Packet(PDU *apdu, const Timestamp &tstamp, own_pdu) 
+    : pdu_(apdu), ts(tstamp) { }
     
     /**
      * \brief Constructs a Packet from a const PDU&.
@@ -197,14 +215,14 @@ public:
     /**
      * Move constructor.
      */
-    Packet(Packet &&rhs) noexcept : pdu_(rhs.pdu()), ts(rhs.timestamp()) {
+    Packet(Packet &&rhs) TINS_NOEXCEPT : pdu_(rhs.pdu()), ts(rhs.timestamp()) {
         rhs.pdu_ = nullptr;
     }
     
     /**
      * Move assignment operator.
      */
-    Packet& operator=(Packet &&rhs) noexcept { 
+    Packet& operator=(Packet &&rhs) TINS_NOEXCEPT { 
         if(this != &rhs) {
             std::swap(pdu_, rhs.pdu_);
             ts = rhs.timestamp();
@@ -268,7 +286,7 @@ public:
      * \return true if pdu() == nullptr, false otherwise.
      */
     operator bool() const {
-        return bool(pdu_);
+        return pdu_ ? true : false;
     }
     
     /**

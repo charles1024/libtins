@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -63,10 +63,12 @@ DHCPv6::DHCPv6(const uint8_t *buffer, uint32_t total_sz)
         if(total_sz < sizeof(uint16_t) * 2) 
             throw malformed_packet();
         
-        const uint16_t opt = Endian::be_to_host(*(const uint16_t*)buffer);
-        const uint16_t data_size = Endian::be_to_host(
-            *(const uint16_t*)(buffer + sizeof(uint16_t))
-        );
+        uint16_t opt;
+        std::memcpy(&opt, buffer, sizeof(uint16_t));
+        opt = Endian::be_to_host(opt);
+        uint16_t data_size;
+        std::memcpy(&data_size, buffer + sizeof(uint16_t), sizeof(uint16_t));
+        data_size = Endian::be_to_host(data_size);
         if(total_sz - sizeof(uint16_t) * 2 < data_size)
             throw malformed_packet();
         buffer += sizeof(uint16_t) * 2;
@@ -91,8 +93,10 @@ const DHCPv6::option *DHCPv6::search_option(OptionTypes id) const {
 }
 
 uint8_t* DHCPv6::write_option(const option &opt, uint8_t* buffer) const {
-    *(uint16_t*)buffer = Endian::host_to_be(opt.option());
-    *(uint16_t*)&buffer[sizeof(uint16_t)] = Endian::host_to_be<uint16_t>(opt.length_field());
+    uint16_t uint16_t_buffer = Endian::host_to_be(opt.option());
+    std::memcpy(buffer, &uint16_t_buffer, sizeof(uint16_t));
+    uint16_t_buffer = Endian::host_to_be<uint16_t>(opt.length_field());
+    std::memcpy(&buffer[sizeof(uint16_t)], &uint16_t_buffer, sizeof(uint16_t));
     return std::copy(
         opt.data_ptr(), 
         opt.data_ptr() + opt.data_size(), 
@@ -157,121 +161,43 @@ void DHCPv6::write_serialization(uint8_t *buffer, uint32_t total_sz, const PDU *
 // ********************************************************************
 
 DHCPv6::ia_na_type DHCPv6::ia_na() const {
-    const option *opt = safe_search_option<std::less>(
-        IA_NA, sizeof(uint32_t) * 3
-    );
-    const uint8_t *ptr = opt->data_ptr() + sizeof(uint32_t) * 3;
-    const uint32_t *ptr_32 = (const uint32_t*)opt->data_ptr();
-    DHCPv6::ia_na_type output;
-    output.id = Endian::be_to_host(*ptr_32++);
-    output.t1 = Endian::be_to_host(*ptr_32++);
-    output.t2 = Endian::be_to_host(*ptr_32++);
-    output.options.assign(ptr, opt->data_ptr() + opt->data_size());
-    return output;
+    return search_and_convert<ia_na_type>(IA_NA);
 }
 
 DHCPv6::ia_ta_type DHCPv6::ia_ta() const {
-    const option *opt = safe_search_option<std::less>(
-        IA_TA, sizeof(uint32_t)
-    );
-    const uint8_t *ptr = opt->data_ptr() + sizeof(uint32_t);
-    const uint32_t *ptr_32 = (const uint32_t*)opt->data_ptr();
-    DHCPv6::ia_ta_type output;
-    output.id = Endian::be_to_host(*ptr_32++);
-    output.options.assign(ptr, opt->data_ptr() + opt->data_size());
-    return output;
+    return search_and_convert<ia_ta_type>(IA_TA);
 }
 
 DHCPv6::ia_address_type DHCPv6::ia_address() const {
-    const option *opt = safe_search_option<std::less>(
-        IA_ADDR, sizeof(uint32_t) * 2 + ipaddress_type::address_size
-    );
-    const uint8_t *ptr = opt->data_ptr() + sizeof(uint32_t) * 2 + ipaddress_type::address_size;
-    const uint32_t *ptr_32 = (const uint32_t*)(opt->data_ptr() + ipaddress_type::address_size);
-    DHCPv6::ia_address_type output;
-    output.address = opt->data_ptr();
-    output.preferred_lifetime = Endian::be_to_host(*ptr_32++);
-    output.valid_lifetime = Endian::be_to_host(*ptr_32++);
-    output.options.assign(ptr, opt->data_ptr() + opt->data_size());
-    return output;
+    return search_and_convert<ia_address_type>(IA_ADDR);
 }
 
 DHCPv6::option_request_type DHCPv6::option_request() const {
-    const option *opt = safe_search_option<std::less>(
-        OPTION_REQUEST, 2
-    );
-    const uint16_t *ptr = (const uint16_t*)opt->data_ptr(), 
-                    *end = (const uint16_t*)(opt->data_ptr() + opt->data_size());
-    option_request_type output;
-    while(ptr < end) {
-        output.push_back(
-            static_cast<OptionTypes>(Endian::be_to_host(*ptr++))
-        );
-    }
-    return output;
+    return search_and_convert<option_request_type>(OPTION_REQUEST);
 }
 
 uint8_t DHCPv6::preference() const {
-    const option *opt = safe_search_option<std::not_equal_to>(
-        PREFERENCE, 1
-    );
-    return *opt->data_ptr();
+    return search_and_convert<uint8_t>(PREFERENCE);
 }
 
 uint16_t DHCPv6::elapsed_time() const {
-    const option *opt = safe_search_option<std::not_equal_to>(
-        ELAPSED_TIME, 2
-    );
-    return Endian::be_to_host(
-        *(const uint16_t*)opt->data_ptr()
-    );
+    return search_and_convert<uint16_t>(ELAPSED_TIME);
 }
 
 DHCPv6::relay_msg_type DHCPv6::relay_message() const {
-    const option *opt = safe_search_option<std::less>(
-        RELAY_MSG, 1
-    );
-    return relay_msg_type(
-        opt->data_ptr(), 
-        opt->data_ptr() + opt->data_size()
-    );
+    return search_and_convert<relay_msg_type>(RELAY_MSG);
 }
 
 DHCPv6::authentication_type DHCPv6::authentication() const {
-    const option *opt = safe_search_option<std::less>(
-        AUTH, sizeof(uint8_t) * 3 + sizeof(uint64_t)
-    );
-    const uint8_t *ptr = opt->data_ptr();
-    authentication_type output;
-    output.protocol = *ptr++;
-    output.algorithm = *ptr++;
-    output.rdm = *ptr++;
-    output.replay_detection = Endian::be_to_host(
-        *(const uint64_t*)ptr
-    );
-    ptr += sizeof(uint64_t);
-    output.auth_info.assign(ptr, opt->data_ptr() + opt->data_size());
-    return output;
+    return search_and_convert<authentication_type>(AUTH);
 }
 
 DHCPv6::ipaddress_type DHCPv6::server_unicast() const {
-    const option *opt = safe_search_option<std::not_equal_to>(
-        UNICAST, ipaddress_type::address_size
-    );
-    return ipaddress_type(opt->data_ptr());
+    return search_and_convert<ipaddress_type>(UNICAST);
 }
 
 DHCPv6::status_code_type DHCPv6::status_code() const {
-    const option *opt = safe_search_option<std::less>(
-        STATUS_CODE, sizeof(uint16_t)
-    );
-    status_code_type output;
-    output.code = Endian::be_to_host(*(const uint16_t*)opt->data_ptr());
-    output.message.assign(
-        opt->data_ptr() + sizeof(uint16_t),
-        opt->data_ptr() + opt->data_size()
-    );
-    return output;
+    return search_and_convert<status_code_type>(STATUS_CODE);
 }
 
 bool DHCPv6::has_rapid_commit() const {
@@ -279,60 +205,23 @@ bool DHCPv6::has_rapid_commit() const {
 }
 
 DHCPv6::user_class_type DHCPv6::user_class() const {
-    const option *opt = safe_search_option<std::less>(
-        USER_CLASS, sizeof(uint16_t)
-    );
-    return option2class_option_data<user_class_type>(
-        opt->data_ptr(), opt->data_size()
-    );
+    return search_and_convert<user_class_type>(USER_CLASS);
 }
 
 DHCPv6::vendor_class_type DHCPv6::vendor_class() const {
-    const option *opt = safe_search_option<std::less>(
-        VENDOR_CLASS, sizeof(uint32_t)
-    );
-    typedef vendor_class_type::class_data_type data_type;
-    vendor_class_type output;
-    output.enterprise_number = Endian::be_to_host(
-        *(const uint32_t*)opt->data_ptr()
-    );
-    output.vendor_class_data = option2class_option_data<data_type>(
-        opt->data_ptr() + sizeof(uint32_t),
-        opt->data_size() - sizeof(uint32_t)
-    );
-    
-    return output;
+    return search_and_convert<vendor_class_type>(VENDOR_CLASS);
 }
 
 DHCPv6::vendor_info_type DHCPv6::vendor_info() const {
-    const option *opt = safe_search_option<std::less>(
-        VENDOR_OPTS, sizeof(uint32_t)
-    );
-    vendor_info_type output;
-    output.enterprise_number = Endian::be_to_host(
-        *(const uint32_t*)opt->data_ptr()
-    );
-    output.data.assign(
-        opt->data_ptr() + sizeof(uint32_t),
-        opt->data_ptr() + opt->data_size()
-    );
-    return output;
+    return search_and_convert<vendor_info_type>(VENDOR_OPTS);
 }
 
 DHCPv6::interface_id_type DHCPv6::interface_id() const {
-    const option *opt = safe_search_option<std::equal_to>(
-        INTERFACE_ID, 0
-    );
-    return interface_id_type(
-        opt->data_ptr(),
-        opt->data_ptr() + opt->data_size()
-    );
+    return search_and_convert<interface_id_type>(INTERFACE_ID);
 }
 
 uint8_t DHCPv6::reconfigure_msg() const {
-    return *safe_search_option<std::not_equal_to>(
-        RECONF_MSG, 1
-    )->data_ptr();
+    return search_and_convert<uint8_t>(RECONF_MSG);
 }
 
 bool DHCPv6::has_reconfigure_accept() const {
@@ -340,29 +229,11 @@ bool DHCPv6::has_reconfigure_accept() const {
 }
 
 DHCPv6::duid_type DHCPv6::client_id() const {
-    const option *opt = safe_search_option<std::less>(
-        CLIENTID, sizeof(uint16_t) + 1
-    );
-    return duid_type(
-        Endian::be_to_host(*(const uint16_t*)opt->data_ptr()),
-        serialization_type(
-            opt->data_ptr() + sizeof(uint16_t),
-            opt->data_ptr() + opt->data_size()
-        )
-    );
+    return search_and_convert<duid_type>(CLIENTID);
 }
 
 DHCPv6::duid_type DHCPv6::server_id() const {
-    const option *opt = safe_search_option<std::less>(
-        SERVERID, sizeof(uint16_t) + 1
-    );
-    return duid_type(
-        Endian::be_to_host(*(const uint16_t*)opt->data_ptr()),
-        serialization_type(
-            opt->data_ptr() + sizeof(uint16_t),
-            opt->data_ptr() + opt->data_size()
-        )
-    );
+    return search_and_convert<duid_type>(SERVERID);
 }
 
 // ********************************************************************
@@ -422,8 +293,11 @@ void DHCPv6::option_request(const option_request_type &value) {
     
     std::vector<uint8_t> buffer(value.size() * sizeof(uint16_t));
     size_t index = 0;
-    for(iterator it = value.begin(); it != value.end(); ++it, index += 2) 
-        *(uint16_t*)&buffer[index] = Endian::host_to_be<uint16_t>(*it);
+    uint16_t uint16_t_buffer;
+    for(iterator it = value.begin(); it != value.end(); ++it, index += 2) {
+        uint16_t_buffer = Endian::host_to_be<uint16_t>(*it);
+        std::memcpy(&buffer[index], &uint16_t_buffer, sizeof(uint16_t));
+    }
     add_option(
         option(OPTION_REQUEST, buffer.begin(), buffer.end())
     );
@@ -455,7 +329,8 @@ void DHCPv6::authentication(const authentication_type &value) {
     buffer[0] = value.protocol;
     buffer[1] = value.algorithm;
     buffer[2] = value.rdm;
-    *(uint64_t*)&buffer[3] = Endian::host_to_be(value.replay_detection);
+    uint64_t uint64_t_buffer = Endian::host_to_be(value.replay_detection);
+    std::memcpy(&buffer[3], &uint64_t_buffer, sizeof(uint64_t));
     std::copy(
         value.auth_info.begin(), 
         value.auth_info.end(),
@@ -474,7 +349,8 @@ void DHCPv6::server_unicast(const ipaddress_type &value) {
 
 void DHCPv6::status_code(const status_code_type &value) {
     std::vector<uint8_t> buffer(sizeof(uint16_t) + value.message.size());
-    *(uint16_t*)&buffer[0] = Endian::host_to_be(value.code);
+    uint16_t uint16_t_buffer = Endian::host_to_be(value.code);
+    std::memcpy(&buffer[0], &uint16_t_buffer, sizeof(uint16_t));
     std::copy(
         value.message.begin(), 
         value.message.end(), 
@@ -492,10 +368,8 @@ void DHCPv6::rapid_commit() {
 }
 
 void DHCPv6::user_class(const user_class_type &value) {
-    typedef user_class_type::const_iterator iterator;
-    
     std::vector<uint8_t> buffer;
-    class_option_data2option(value.begin(), value.end(), buffer);
+    Internals::class_option_data2option(value.data.begin(), value.data.end(), buffer);
     add_option(
         option(USER_CLASS, buffer.begin(), buffer.end())
     );
@@ -505,8 +379,9 @@ void DHCPv6::vendor_class(const vendor_class_type &value) {
     std::vector<uint8_t> buffer(
         sizeof(uint32_t)
     );
-    *(uint32_t*)&buffer[0] = Endian::host_to_be(value.enterprise_number);
-    class_option_data2option(
+    uint32_t enterprise_number = Endian::host_to_be(value.enterprise_number);
+    std::memcpy(&buffer[0], &enterprise_number, sizeof(uint32_t));
+    Internals::class_option_data2option(
         value.vendor_class_data.begin(),
         value.vendor_class_data.end(),
         buffer,
@@ -519,7 +394,8 @@ void DHCPv6::vendor_class(const vendor_class_type &value) {
 
 void DHCPv6::vendor_info(const vendor_info_type &value) {
     std::vector<uint8_t> buffer(sizeof(uint32_t) + value.data.size());
-    *(uint32_t*)&buffer[0] = Endian::host_to_be(value.enterprise_number);
+    uint32_t enterprise_number = Endian::host_to_be(value.enterprise_number);
+    std::memcpy(&buffer[0], &enterprise_number, sizeof(uint32_t));
     std::copy(
         value.data.begin(),
         value.data.end(),
@@ -555,9 +431,11 @@ DHCPv6::duid_llt DHCPv6::duid_llt::from_bytes(const uint8_t *buffer, uint32_t to
     if(total_sz < sizeof(uint16_t) + sizeof(uint32_t) + 1)
         throw std::runtime_error("Not enough size for a DUID_LLT identifier");
     duid_llt output;
-    output.hw_type = Endian::be_to_host(*(const uint16_t*)buffer);
+    std::memcpy(&output.hw_type, buffer, sizeof(uint16_t));
+    output.hw_type = Endian::be_to_host(output.hw_type);
     buffer += sizeof(uint16_t);
-    output.time = Endian::be_to_host(*(const uint32_t*)buffer);
+    std::memcpy(&output.time, buffer, sizeof(uint32_t));
+    output.time = Endian::be_to_host(output.time);
     buffer += sizeof(uint32_t);
     total_sz -= sizeof(uint16_t) + sizeof(uint32_t);
     output.lladdress.assign(buffer, buffer + total_sz);
@@ -566,8 +444,10 @@ DHCPv6::duid_llt DHCPv6::duid_llt::from_bytes(const uint8_t *buffer, uint32_t to
 
 PDU::serialization_type DHCPv6::duid_llt::serialize() const {
     serialization_type output(sizeof(uint16_t) + sizeof(uint32_t) + lladdress.size());
-    *(uint16_t*)&output[0] = Endian::host_to_be(hw_type);
-    *(uint32_t*)&output[sizeof(uint16_t)] = Endian::host_to_be(time);
+    uint16_t tmp_hw_type = Endian::host_to_be(hw_type);
+    uint32_t tmp_time = Endian::host_to_be(time);
+    std::memcpy(&output[0], &tmp_hw_type, sizeof(uint16_t));
+    std::memcpy(&output[sizeof(uint16_t)], &tmp_time, sizeof(uint32_t));
     std::copy(
         lladdress.begin(),
         lladdress.end(),
@@ -582,7 +462,8 @@ DHCPv6::duid_en DHCPv6::duid_en::from_bytes(const uint8_t *buffer, uint32_t tota
     if(total_sz < sizeof(uint32_t) + 1)
         throw std::runtime_error("Not enough size for a DUID_en identifier");
     duid_en output;
-    output.enterprise_number = Endian::be_to_host(*(const uint32_t*)buffer);
+    std::memcpy(&output.enterprise_number, buffer, sizeof(uint32_t));
+    output.enterprise_number = Endian::be_to_host(output.enterprise_number);
     buffer += sizeof(uint32_t);
     total_sz -= sizeof(uint32_t);
     output.identifier.assign(buffer, buffer + total_sz);
@@ -591,7 +472,8 @@ DHCPv6::duid_en DHCPv6::duid_en::from_bytes(const uint8_t *buffer, uint32_t tota
 
 PDU::serialization_type DHCPv6::duid_en::serialize() const {
     serialization_type output(sizeof(uint32_t) + identifier.size());
-    *(uint32_t*)&output[0] = Endian::host_to_be(enterprise_number);
+    uint32_t tmp_enterprise_number = Endian::host_to_be(enterprise_number);
+    std::memcpy(&output[0], &tmp_enterprise_number, sizeof(uint32_t));
     std::copy(
         identifier.begin(),
         identifier.end(),
@@ -606,7 +488,8 @@ DHCPv6::duid_ll DHCPv6::duid_ll::from_bytes(const uint8_t *buffer, uint32_t tota
     if(total_sz < sizeof(uint16_t) + 1)
         throw std::runtime_error("Not enough size for a DUID_en identifier");
     duid_ll output;
-    output.hw_type = Endian::be_to_host(*(const uint16_t*)buffer);
+    std::memcpy(&output.hw_type, buffer, sizeof(uint16_t));
+    output.hw_type = Endian::be_to_host(output.hw_type);
     buffer += sizeof(uint16_t);
     total_sz -= sizeof(uint16_t);
     output.lladdress.assign(buffer, buffer + total_sz);
@@ -615,7 +498,8 @@ DHCPv6::duid_ll DHCPv6::duid_ll::from_bytes(const uint8_t *buffer, uint32_t tota
 
 PDU::serialization_type DHCPv6::duid_ll::serialize() const {
     serialization_type output(sizeof(uint16_t) + lladdress.size());
-    *(uint16_t*)&output[0] = Endian::host_to_be(hw_type);
+    uint16_t tmp_hw_type = Endian::host_to_be(hw_type);
+    std::memcpy(&output[0], &tmp_hw_type, sizeof(uint16_t));
     std::copy(
         lladdress.begin(),
         lladdress.end(),
@@ -626,7 +510,8 @@ PDU::serialization_type DHCPv6::duid_ll::serialize() const {
 
 void DHCPv6::client_id(const duid_type &value) {
     serialization_type buffer(sizeof(uint16_t) + value.data.size());
-    *(uint16_t*)&buffer[0] = Endian::host_to_be(value.id);
+    uint16_t tmp_id = Endian::host_to_be(value.id);
+    std::memcpy(&buffer[0], &tmp_id, sizeof(uint16_t));
     std::copy(
         value.data.begin(),
         value.data.end(),
@@ -639,7 +524,8 @@ void DHCPv6::client_id(const duid_type &value) {
 
 void DHCPv6::server_id(const duid_type &value) {
     serialization_type buffer(sizeof(uint16_t) + value.data.size());
-    *(uint16_t*)&buffer[0] = Endian::host_to_be(value.id);
+    uint16_t tmp_id = Endian::host_to_be(value.id);
+    std::memcpy(&buffer[0], &tmp_id, sizeof(uint16_t));
     std::copy(
         value.data.begin(),
         value.data.end(),
@@ -650,4 +536,132 @@ void DHCPv6::server_id(const duid_type &value) {
     );
 }
 
+// Options
+
+DHCPv6::ia_na_type DHCPv6::ia_na_type::from_option(const option &opt)
+{
+    if(opt.data_size() < sizeof(uint32_t) * 3)
+        throw malformed_option();
+    const uint8_t *ptr = opt.data_ptr() + sizeof(uint32_t) * 3;
+    const uint32_t *ptr_32 = (const uint32_t*)opt.data_ptr();
+    DHCPv6::ia_na_type output;
+    output.id = Endian::be_to_host(*ptr_32++);
+    output.t1 = Endian::be_to_host(*ptr_32++);
+    output.t2 = Endian::be_to_host(*ptr_32++);
+    output.options.assign(ptr, opt.data_ptr() + opt.data_size());
+    return output;
+}
+
+DHCPv6::ia_ta_type DHCPv6::ia_ta_type::from_option(const option &opt)
+{
+    if(opt.data_size() < sizeof(uint32_t))
+        throw malformed_option();
+    const uint8_t *ptr = opt.data_ptr() + sizeof(uint32_t);
+    const uint32_t *ptr_32 = (const uint32_t*)opt.data_ptr();
+    DHCPv6::ia_ta_type output;
+    output.id = Endian::be_to_host(*ptr_32++);
+    output.options.assign(ptr, opt.data_ptr() + opt.data_size());
+    return output;
+}
+
+DHCPv6::ia_address_type DHCPv6::ia_address_type::from_option(const option &opt)
+{
+    if(opt.data_size() < sizeof(uint32_t) * 2 + DHCPv6::ipaddress_type::address_size)
+        throw malformed_option();
+    const uint8_t *ptr = opt.data_ptr() + sizeof(uint32_t) * 2 + ipaddress_type::address_size;
+    const uint32_t *ptr_32 = (const uint32_t*)(opt.data_ptr() + ipaddress_type::address_size);
+    DHCPv6::ia_address_type output;
+    output.address = opt.data_ptr();
+    output.preferred_lifetime = Endian::be_to_host(*ptr_32++);
+    output.valid_lifetime = Endian::be_to_host(*ptr_32++);
+    output.options.assign(ptr, opt.data_ptr() + opt.data_size());
+    return output;
+}
+
+DHCPv6::authentication_type DHCPv6::authentication_type::from_option(const option &opt)
+{
+    if(opt.data_size() < sizeof(uint8_t) * 3 + sizeof(uint64_t))
+        throw malformed_option();
+    const uint8_t *ptr = opt.data_ptr();
+    authentication_type output;
+    output.protocol = *ptr++;
+    output.algorithm = *ptr++;
+    output.rdm = *ptr++;
+    std::memcpy(&output.replay_detection, ptr, sizeof(uint64_t));
+    output.replay_detection = Endian::be_to_host(output.replay_detection);
+    ptr += sizeof(uint64_t);
+    output.auth_info.assign(ptr, opt.data_ptr() + opt.data_size());
+    return output;
+}
+
+DHCPv6::status_code_type DHCPv6::status_code_type::from_option(const option &opt)
+{
+    if(opt.data_size() < sizeof(uint16_t))
+        throw malformed_option();
+    status_code_type output;
+    std::memcpy(&output.code, opt.data_ptr(), sizeof(uint16_t));
+    output.code = Endian::be_to_host(output.code);
+    output.message.assign(
+        opt.data_ptr() + sizeof(uint16_t),
+        opt.data_ptr() + opt.data_size()
+    );
+    return output;
+}
+
+DHCPv6::vendor_info_type DHCPv6::vendor_info_type::from_option(const option &opt)
+{
+    if(opt.data_size() < sizeof(uint32_t))
+        throw malformed_option();
+    vendor_info_type output;
+    std::memcpy(&output.enterprise_number, opt.data_ptr(), sizeof(uint32_t));
+    output.enterprise_number = Endian::be_to_host(output.enterprise_number);
+    output.data.assign(
+        opt.data_ptr() + sizeof(uint32_t),
+        opt.data_ptr() + opt.data_size()
+    );
+    return output;
+}
+
+DHCPv6::vendor_class_type DHCPv6::vendor_class_type::from_option(const option &opt)
+{
+    if(opt.data_size() < sizeof(uint32_t))
+        throw malformed_option();
+    typedef vendor_class_type::class_data_type data_type;
+    vendor_class_type output;
+    std::memcpy(&output.enterprise_number, opt.data_ptr(), sizeof(uint32_t));
+    output.enterprise_number = Endian::be_to_host(output.enterprise_number);
+    output.vendor_class_data = Internals::option2class_option_data<data_type>(
+        opt.data_ptr() + sizeof(uint32_t),
+        opt.data_size() - sizeof(uint32_t)
+    );
+    
+    return output;
+}
+
+DHCPv6::duid_type DHCPv6::duid_type::from_option(const option &opt)
+{
+    if(opt.data_size() < sizeof(uint16_t) + 1)
+        throw malformed_option();
+
+    uint16_t uint16_t_buffer;
+    std::memcpy(&uint16_t_buffer, opt.data_ptr(), sizeof(uint16_t));
+    return duid_type(
+        Endian::be_to_host(uint16_t_buffer),
+        serialization_type(
+            opt.data_ptr() + sizeof(uint16_t),
+            opt.data_ptr() + opt.data_size()
+        )
+    );
+}
+
+DHCPv6::user_class_type DHCPv6::user_class_type::from_option(const option &opt)
+{
+    if(opt.data_size() < sizeof(uint16_t))
+        throw malformed_option();
+    user_class_type output;
+    output.data = Internals::option2class_option_data<data_type>(
+        opt.data_ptr(), opt.data_size()
+    );
+    return output;
+}
 } // namespace Tins

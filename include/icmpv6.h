@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,7 +44,8 @@
 
 namespace Tins {
 /**
- * Represents an ICMPv6 PDU.
+ * \class ICMPv6
+ * \brief Represents an ICMPv6 PDU.
  */
 class ICMPv6 : public PDU {
 public:
@@ -135,7 +136,7 @@ public:
     /**
      * The type used to represent ICMPv6 options.
      */
-    typedef PDUOption<uint8_t> option;
+    typedef PDUOption<uint8_t, ICMPv6> option;
     
     /**
      * The type used to store options.
@@ -145,16 +146,26 @@ public:
     /**
      * \brief The type used to store the new home agent information 
      * option data.
-     * 
-     * The first member contains the home agent preference field, while
-     * the second one contains the home agent lifetime.
      */
-    typedef std::pair<uint16_t, uint16_t> new_ha_info_type;
+    typedef std::vector<uint16_t> new_ha_info_type;
     
     /**
      * The type used to store the source/target address list options.
      */
-    typedef std::vector<ipaddress_type> addr_list_type;
+    struct addr_list_type {
+        typedef std::vector<ipaddress_type> addresses_type;
+        
+        uint8_t reserved[6];
+        addresses_type addresses;
+        
+        addr_list_type(const addresses_type &addresses = addresses_type())
+        : addresses(addresses) 
+        {
+            std::fill(reserved, reserved + sizeof(reserved), 0);
+        }
+        
+        static addr_list_type from_option(const option &opt);
+    };
     
     /**
      * The type used to store the nonce option data.
@@ -162,13 +173,26 @@ public:
     typedef std::vector<uint8_t> nonce_type;
     
     /**
+     * The type used to store the MTU option.
+     */
+    typedef std::pair<uint16_t, uint32_t> mtu_type;
+    
+    /**
      * \brief The type used to store the neighbour advertisement 
      * acknowledgement option data.
-     * 
-     * The first member contains the option code field, while
-     * the second one contains the status.
      */
-    typedef std::pair<uint8_t, uint8_t> naack_type;
+    struct naack_type {
+        uint8_t code, status;
+        uint8_t reserved[4];
+        
+        naack_type(uint8_t code = 0, uint8_t status = 0)
+        : code(code), status(status)
+        {
+            std::fill(reserved, reserved + 4, 0);
+        }
+        
+        static naack_type from_option(const option &opt);
+    };
     
     /**
      * \brief The type used to store the link layer address option data.
@@ -207,6 +231,8 @@ public:
         {
             
         }
+        
+        static lladdr_type from_option(const option &opt);
     };
     
     /**
@@ -226,6 +252,8 @@ public:
         : prefix_len(prefix_len), A(A), L(L), 
           valid_lifetime(valid_lifetime), preferred_lifetime(preferred_lifetime),
           prefix(prefix) { }
+          
+        static prefix_info_type from_option(const option &opt);
     };
     
     /**
@@ -290,6 +318,8 @@ public:
         {
             std::fill(key_hash, key_hash + sizeof(key_hash), 0);
         }
+
+        static rsa_sign_type from_option(const option &opt);
     };
     
     /**
@@ -303,6 +333,8 @@ public:
           const ipaddress_type &address = ipaddress_type())
         : option_code(option_code), prefix_len(prefix_len), address(address)
         {}
+
+        static ip_prefix_type from_option(const option &opt);
     };
     
     /**
@@ -319,6 +351,8 @@ public:
           const ipaddress_type &address = ipaddress_type())
         : dist(dist), pref(pref), r(r), valid_lifetime(valid_lifetime),
           address(address) { }
+
+        static map_type from_option(const option &opt);
     };
     
     /**
@@ -336,6 +370,8 @@ public:
           uint32_t route_lifetime = 0, const prefix_type &prefix = prefix_type())
         : prefix_len(prefix_len), pref(pref), route_lifetime(route_lifetime),
           prefix(prefix) { }
+
+        static route_info_type from_option(const option &opt);
     };
     
     /**
@@ -350,6 +386,8 @@ public:
         recursive_dns_type(uint32_t lifetime = 0, 
           const servers_type &servers = servers_type())
         : lifetime(lifetime), servers(servers) {}
+
+        static recursive_dns_type from_option(const option &opt);
     };
     
     /**
@@ -364,6 +402,8 @@ public:
         handover_key_req_type(small_uint<4> AT = 0,
           const key_type &key = key_type())
         : AT(AT), key(key) { }
+
+        static handover_key_req_type from_option(const option &opt);
     };
     
     /**
@@ -375,6 +415,8 @@ public:
         handover_key_reply_type(uint16_t lifetime = 0, small_uint<4> AT = 0,
           const key_type &key = key_type())
         : handover_key_req_type(AT, key), lifetime(lifetime) { }
+
+        static handover_key_reply_type from_option(const option &opt);
     };
     
     /**
@@ -389,6 +431,8 @@ public:
         handover_assist_info_type(uint8_t option_code=0, 
           const hai_type &hai = hai_type())
         : option_code(option_code), hai(hai) { }
+
+        static handover_assist_info_type from_option(const option &opt);
     };
     
     /**
@@ -403,6 +447,8 @@ public:
         mobile_node_id_type(uint8_t option_code=0, 
           const mn_type &mn = mn_type())
         : option_code(option_code), mn(mn) { }
+
+        static mobile_node_id_type from_option(const option &opt);
     };
     
     /**
@@ -417,8 +463,58 @@ public:
         dns_search_list_type(uint32_t lifetime = 0,
           const domains_type &domains = domains_type())
         : lifetime(lifetime), domains(domains) { }
+
+        static dns_search_list_type from_option(const option &opt);
     };
-    
+
+    /**
+     * The type used to store the timestamp option.
+     */
+    struct timestamp_type {
+        uint8_t reserved[6];
+        uint64_t timestamp;
+
+        timestamp_type(uint64_t timestamp = 0)
+        : timestamp(timestamp)
+        {
+            std::fill(reserved, reserved + sizeof(reserved), 0);
+        }
+
+        static timestamp_type from_option(const option &opt);
+    };
+
+    /**
+     * The type used to store the shortcut limit option.
+     */
+    struct shortcut_limit_type {
+        uint8_t limit, reserved1;
+        uint32_t reserved2;
+
+        shortcut_limit_type(uint8_t limit = 0)
+        : limit(limit), reserved1(), reserved2()
+        {
+
+        }
+
+        static shortcut_limit_type from_option(const option &opt);
+    };
+
+    /**
+     * The type used to store new advertisement interval option.
+     */
+    struct new_advert_interval_type {
+        uint16_t reserved;
+        uint32_t interval;
+
+        new_advert_interval_type(uint32_t interval = 0)
+        : reserved(), interval(interval)
+        {
+
+        }
+
+        static new_advert_interval_type from_option(const option &opt);
+    };
+
     /**
      * \brief Constructs an ICMPv6 object.
      * 
@@ -820,33 +916,30 @@ public:
     /**
      * \brief Setter for the redirect header option.
      * 
-     * This method appends the 6 reserved bytes and inserts the 
-     * necessary padding at the end.
-     * 
      * \param data The redirect header option data.
      */
-    void redirect_header(PDU::serialization_type data);
+    void redirect_header(const byte_array &data);
     
     /**
      * \brief Setter for the MTU option.
      * 
      * \param value The MTU option data.
      */
-    void mtu(uint32_t value);
+    void mtu(const mtu_type& value);
     
     /**
      * \brief Setter for the shortcut limit option.
      * 
      * \param value The shortcut limit option data.
      */
-    void shortcut_limit(uint8_t value);
+    void shortcut_limit(const shortcut_limit_type& value);
     
     /**
      * \brief Setter for the new advertisement interval option.
      * 
      * \param value The new advertisement interval option data.
      */
-    void new_advert_interval(uint32_t value);
+    void new_advert_interval(const new_advert_interval_type &value);
     
     /**
      * \brief Setter for the new home agent information option.
@@ -881,7 +974,7 @@ public:
      * 
      * \param value The new timestamp option data.
      */
-    void timestamp(uint64_t value);
+    void timestamp(const timestamp_type &value);
     
     /**
      * \brief Setter for the new nonce option.
@@ -1001,7 +1094,7 @@ public:
      * This method will throw an option_not_found exception if the
      * option is not found.
      */
-    PDU::serialization_type redirect_header() const;
+    byte_array redirect_header() const;
     
     /**
      * \brief Getter for the MTU option.
@@ -1009,7 +1102,7 @@ public:
      * This method will throw an option_not_found exception if the
      * option is not found.
      */
-    uint32_t mtu() const;
+    mtu_type mtu() const;
     
     /**
      * \brief Getter for the shortcut limit option.
@@ -1017,7 +1110,7 @@ public:
      * This method will throw an option_not_found exception if the
      * option is not found.
      */
-    uint8_t shortcut_limit() const;
+    shortcut_limit_type shortcut_limit() const;
     
     /**
      * \brief Getter for the new advertisement interval option.
@@ -1025,7 +1118,7 @@ public:
      * This method will throw an option_not_found exception if the
      * option is not found.
      */
-    uint32_t new_advert_interval() const;
+    new_advert_interval_type new_advert_interval() const;
     
     /**
      * \brief Getter for the new home agent information option.
@@ -1065,7 +1158,7 @@ public:
      * This method will throw an option_not_found exception if the
      * option is not found.
      */
-    uint64_t timestamp() const;
+    timestamp_type timestamp() const;
     
     /**
      * \brief Getter for the nonce option.
@@ -1223,6 +1316,14 @@ private:
         if(!option || Functor<uint32_t>()(option->data_size(), size))
             throw option_not_found();
         return option;
+    }
+
+    template<typename T>
+    T search_and_convert(OptionTypes type) const {
+        const option *opt = search_option(type);
+        if(!opt)
+            throw option_not_found();
+        return opt->to<T>();
     }
 
     icmp6hdr _header;

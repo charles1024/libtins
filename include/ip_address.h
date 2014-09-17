@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -177,7 +177,7 @@ public:
      */
     friend std::ostream &operator<<(std::ostream &output, const IPv4Address &addr);
 private:
-    uint32_t ip_to_int(const std::string &ip);
+    uint32_t ip_to_int(const char* ip);
 
     uint32_t ip_addr;
 };

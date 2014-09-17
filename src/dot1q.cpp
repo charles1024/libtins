@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -103,7 +103,7 @@ void Dot1Q::write_serialization(uint8_t *buffer, uint32_t total_sz, const PDU *)
     #ifdef TINS_DEBUG
     assert(total_sz >= sizeof(_header) + trailer);
     #endif
-    if ((payload_type() == 0) && inner_pdu()) {
+    if (inner_pdu()) {
         Constants::Ethernet::e flag = Internals::pdu_flag_to_ether_type(
             inner_pdu()->pdu_type()
         );

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,10 +33,10 @@
 #ifndef WIN32
     #include <ifaddrs.h>
 #else
-    #define NOMINMAX
     #include <winsock2.h>
     #include <iphlpapi.h>
     #undef interface
+    #include "network_interface.h"
 #endif
 #include "macros.h"
 #if defined(BSD) || defined(__FreeBSD_kernel__)
@@ -198,10 +198,17 @@ namespace Tins {
         
         /**
          * \brief Converts mhz units to the appropriate channel number.
-         * \param channel The mhz units to be converted.
+         * \param mhz The mhz units to be converted.
          * \return The channel number.
          */
         uint16_t mhz_to_channel(uint16_t mhz);
+        
+        /**
+         * \brief Converts a PDUType to a string.
+         * \param pduType The PDUType to be converted.
+         * \return A string representation, for example "DOT11_QOS_DATA".
+         */
+        std::string to_string(PDU::PDUType pduType);
 
         /** \brief Does the 16 bits sum of all 2 bytes elements between start and end.
          *
@@ -383,9 +390,8 @@ void Tins::Utils::route_entries(ForwardIterator output) {
     for (DWORD i = 0; i < table->dwNumEntries; i++) {
         MIB_IPFORWARDROW *row = &table->table[i];
         if(row->dwForwardType == MIB_IPROUTE_TYPE_INDIRECT) {
-            if_indextoname(row->dwForwardIfIndex, iface_name);
             RouteEntry entry;
-            entry.interface = iface_name;
+            entry.interface = NetworkInterface::from_index(row->dwForwardIfIndex).name();
             entry.destination = IPv4Address(row->dwForwardDest);
             entry.mask = IPv4Address(row->dwForwardMask);
             entry.gateway = IPv4Address(row->dwForwardNextHop);

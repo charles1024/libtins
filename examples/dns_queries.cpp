@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -54,8 +54,13 @@ int main(int argc, char *argv[])
         std::cout << "Usage: " << *argv << " <interface>" << std::endl;
         return 1;
     }
-    // Sniff on the provided interface, maximum packet size 2000
-    // in promiscuos mode and only udp packets sent to port 53
-    Sniffer sniffer(argv[1], 2000, true, "udp and dst port 53");
+    // Sniff on the provided interface in promiscuos mode
+    SnifferConfiguration config;
+    config.set_promisc_mode(true);
+    // Only capture udp packets sent to port 53
+    config.set_filter("udp and dst port 53");
+    Sniffer sniffer(argv[1], config);
+    
+    // Start the capture
     sniffer.sniff_loop(callback);
 }

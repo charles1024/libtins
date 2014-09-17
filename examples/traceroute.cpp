@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,10 +47,12 @@ public:
     
     result_type trace() {
         // ICMPs that aren't sent from us.
-        Sniffer sniffer(
-            iface.name(), 500, false, 
-            "ip proto \\icmp and not src host " + iface.addresses().ip_addr.to_string()
-        );
+        SnifferConfiguration config;
+        config.set_snap_len(500);
+        config.set_promisc_mode(false);
+        config.set_filter(
+            "ip proto \\icmp and not src host " + iface.addresses().ip_addr.to_string());
+        Sniffer sniffer(iface.name(), config);
         
         PacketSender sender;
         // Create our handler

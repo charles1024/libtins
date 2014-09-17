@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,9 @@
     #define TINS_CXXSTD_GCC_FIX 0
 #endif // __GXX_EXPERIMENTAL_CXX0X__
 
-#define TINS_IS_CXX11 (__cplusplus > 199711L || TINS_CXXSTD_GCC_FIX == 1)
+#ifndef TINS_IS_CXX11
+#define TINS_IS_CXX11 (__cplusplus > 199711L || TINS_CXXSTD_GCC_FIX == 1 || _MSC_VER >= 1800)
+#endif  // TINS_IS_CXX11
 
 namespace Tins{
 namespace Internals {

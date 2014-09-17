@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,12 +42,16 @@
     #endif
     #include <net/if.h>
 #else
-    #define NOMINMAX
     #include <winsock2.h>
+    #include <Iphlpapi.h>
 #endif
 #include "network_interface.h"
 #include "utils.h"
 #include "endianness.h"
+
+using std::string;
+using std::vector;
+using std::set;
 
 /** \cond */
 struct InterfaceInfoCollector {
@@ -123,9 +127,24 @@ namespace Tins {
 NetworkInterface NetworkInterface::default_interface() {
     return NetworkInterface(IPv4Address(uint32_t(0)));
 }
+
+vector<NetworkInterface> NetworkInterface::all() {
+    const set<string> interfaces = Utils::network_interfaces();
+    vector<NetworkInterface> output;
+    for(set<string>::const_iterator it = interfaces.begin(); it != interfaces.end(); ++it) {
+        output.push_back(*it);
+    }
+    return output;
+}
     
 NetworkInterface::NetworkInterface() : iface_id(0) {
 
+}
+
+NetworkInterface NetworkInterface::from_index(id_type identifier) {
+    NetworkInterface iface;
+    iface.iface_id = identifier;
+    return iface;
 }
 
 NetworkInterface::NetworkInterface(const char *name) {
@@ -170,7 +189,19 @@ std::string NetworkInterface::name() const {
         throw std::runtime_error("Error fetching this interface's name");
     return iface_name;
     #else // WIN32
-    return "Not implemented";
+    ULONG size;
+    ::GetAdaptersAddresses(AF_INET, 0, 0, 0, &size);
+    std::vector<uint8_t> buffer(size);
+    if (::GetAdaptersAddresses(AF_INET, 0, 0, (IP_ADAPTER_ADDRESSES *)&buffer[0], &size) == ERROR_SUCCESS) {
+        PIP_ADAPTER_ADDRESSES iface = (IP_ADAPTER_ADDRESSES *)&buffer[0];
+        while (iface) {
+            if (iface->IfIndex == iface_id) {
+                return iface->AdapterName;
+            }
+            iface = iface->Next;
+        }
+    }
+    throw std::runtime_error("Failed to find interface name");
     #endif // WIN32
 }
 
@@ -185,10 +216,26 @@ NetworkInterface::Info NetworkInterface::addresses() const {
 }
 
 NetworkInterface::id_type NetworkInterface::resolve_index(const char *name) {
+    #ifndef WIN32
     id_type id = if_nametoindex(name);
     if(!id)
         throw std::runtime_error("Invalid interface");
     return id;
+    #else // Win32
+    ULONG size;
+    ::GetAdaptersAddresses(AF_INET, 0, 0, 0, &size);
+    std::vector<uint8_t> buffer(size);
+    if (::GetAdaptersAddresses(AF_INET, 0, 0, (IP_ADAPTER_ADDRESSES *)&buffer[0], &size) == ERROR_SUCCESS) {
+        PIP_ADAPTER_ADDRESSES iface = (IP_ADAPTER_ADDRESSES *)&buffer[0];
+        while (iface) {
+            if (strcmp(iface->AdapterName, name) == 0) {
+                return iface->IfIndex;
+            }
+            iface = iface->Next;
+        }
+    }
+    throw std::runtime_error("Invalid interface");
+    #endif // Win32
 }
 }
 

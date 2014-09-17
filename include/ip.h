@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,6 +42,7 @@
 namespace Tins {
 
     /**
+     * \class IP
      * \brief Class that represents an IP PDU.
      * 
      * By default, IP PDUs are initialized, setting TTL to IP::DEFAULT_TTL,
@@ -169,7 +170,7 @@ namespace Tins {
         /**
          * The IP options type.
          */
-        typedef PDUOption<option_identifier> option;
+        typedef PDUOption<option_identifier, IP> option;
 
         /**
          * The type of the security option.
@@ -184,6 +185,8 @@ namespace Tins {
             : security(sec), compartments(comp), 
               handling_restrictions(hand_res), transmission_control(tcc) 
               {}
+            
+            static security_type from_option(const option &opt);
         };
         
         /**
@@ -198,6 +201,8 @@ namespace Tins {
             generic_route_option_type(uint8_t ptr = 0, 
               routes_type rts = routes_type())
             : pointer(ptr), routes(rts) {}
+            
+            static generic_route_option_type from_option(const option &opt);
         };
         
         /**
@@ -421,6 +426,20 @@ namespace Tins {
             void add_option(option &&opt) {
                 internal_add_option(opt);
                 _ip_options.push_back(std::move(opt));
+            }
+
+            /**
+             * \brief Adds an IP option.
+             * 
+             * The option is constructed from the provided parameters.
+             * 
+             * \param args The arguments to be used in the option's 
+             * constructor.
+             */
+            template<typename... Args>
+            void add_option(Args&&... args) {
+                _ip_options.emplace_back(std::forward<Args>(args)...);
+                internal_add_option(_ip_options.back());
             }
         #endif
 

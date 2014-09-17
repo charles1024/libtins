@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,6 +31,7 @@
 #define TINS_NETWORK_INTERFACE_H
 
 #include <string>
+#include <vector>
 #include <stdint.h>
 #include "hw_address.h"
 #include "ip_address.h"
@@ -65,6 +66,16 @@ public:
      * interface.
      */
     static NetworkInterface default_interface();
+
+    /**
+     * Returns all available network interfaces.
+     */
+    static std::vector<NetworkInterface> all();
+
+    /**
+     * Returns a network interface for the given index.
+     */
+    static NetworkInterface from_index(id_type identifier);
 
     /**
      * Default constructor.
@@ -106,7 +117,11 @@ public:
     
     /**
      * \brief Retrieves this interface's name.
-     * 
+     *
+     * This name can be used as the interface name provided to the
+     * Sniffer class when starting a sniffing session.
+     *
+     * \sa Sniffer
      * \return std::string containing this interface's name.
      */
     std::string name() const;

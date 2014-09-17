@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -72,5 +72,6 @@
 #include "pdu_allocator.h"
 #include "ipsec.h"
 #include "ip_reassembler.h"
+#include "ppi.h"
 
 #endif // TINS_TINS_H

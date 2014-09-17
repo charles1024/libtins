@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Matias Fontanini
+ * Copyright (c) 2014, Matias Fontanini
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,11 +40,13 @@
     #define TINS_END_PACK __pragma( pack(pop) )
     #define TINS_PACKED(DECLARATION) __pragma( pack(push, 1) ) DECLARATION __pragma( pack(pop) )
     #define TINS_DEPRECATED(func) __declspec(deprecated) func
+    #define TINS_NOEXCEPT
 #else
     #define TINS_BEGIN_PACK 
     #define TINS_END_PACK __attribute__((packed))
     #define TINS_PACKED(DECLARATION) DECLARATION __attribute__((packed))
     #define TINS_DEPRECATED(func) func __attribute__ ((deprecated))
+    #define TINS_NOEXCEPT noexcept
 #endif
 
 #endif
